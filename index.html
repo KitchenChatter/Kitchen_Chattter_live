@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>i.r.T - Incident Response & Telemetry</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0a0e1a;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: #141824;
+            border-bottom: 1px solid #1f2535;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo h1 {
+            font-family: 'Courier New', monospace;
+            color: #00ff9d;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+        }
+
+        .logo p {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff9d;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-text {
+            color: #00ff9d;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Metrics Dashboard */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: #141824;
+            border: 1px solid #1f2535;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 255, 157, 0.1);
+        }
+
+        .metric-card.operational { border-left: 4px solid #00ff9d; }
+        .metric-card.degraded { border-left: 4px solid #fbbf24; }
+        .metric-card.critical { border-left: 4px solid #ef4444; }
+        .metric-card.uptime { border-left: 4px solid #3b82f6; }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-icon {
+            font-size: 1.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        .metric-label {
+            color: #9ca3af;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Fleet Grid Section */
+        .fleet-section {
+            background: #141824;
+            border: 1px solid #1f2535;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #1f2535;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .fleet-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .control-btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid #1f2535;
+            color: #ffffff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover {
+            background: #1f2535;
+            border-color: #00ff9d;
+        }
+
+        .control-btn.danger {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .control-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Fleet Grid */
+        .fleet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+
+        .robot-card {
+            background: #0a0e1a;
+            border: 2px solid #1f2535;
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .robot-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            transition: all 0.3s ease;
+        }
+
+        .robot-card.operational::before { background: #00ff9d; }
+        .robot-card.degraded::before { background: #fbbf24; }
+        .robot-card.critical::before { 
+            background: #ef4444;
+            animation: flash 1s ease-in-out infinite;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .robot-card:hover {
+            transform: scale(1.05);
+            border-color: #00ff9d;
+            box-shadow: 0 8px 24px rgba(0, 255, 157, 0.2);
+        }
+
+        .robot-id {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .robot-health {
+            font-size: 1.75rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 0.5rem;
+        }
+
+        .robot-health.healthy { color: #00ff9d; }
+        .robot-health.warning { color: #fbbf24; }
+        .robot-health.danger { color: #ef4444; }
+
+        .robot-stats {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+
+        .battery-icon {
+            display: inline-block;
+            width: 12px;
+            height: 8px;
+            border: 1px solid currentColor;
+            border-radius: 1px;
+            position: relative;
+        }
+
+        .battery-icon::after {
+            content: '';
+            position: absolute;
+            right: -3px;
+            top: 2px;
+            width: 2px;
+            height: 4px;
+            background: currentColor;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-badge.operational { background: #00ff9d; }
+        .status-badge.degraded { background: #fbbf24; }
+        .status-badge.critical { background: #ef4444; animation: pulse 1s ease-in-out infinite; }
+
+        /* Incident Timeline */
+        .incident-timeline {
+            background: #141824;
+            border: 1px solid #1f2535;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .incident-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #1f2535;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .incident-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .incidents-list {
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .incident-item {
+            background: rgba(10, 14, 26, 0.5);
+            border-left: 4px solid;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .incident-item.warning { border-color: #fbbf24; }
+        .incident-item.critical { border-color: #ef4444; }
+
+        .incident-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .incident-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .incident-type {
+            font-size: 1.25rem;
+        }
+
+        .incident-robot {
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+
+        .incident-time {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .incident-message {
+            font-size: 0.875rem;
+            color: #d1d5db;
+            line-height: 1.5;
+        }
+
+        .resolve-btn {
+            padding: 0.25rem 0.5rem;
+            background: transparent;
+            border: 1px solid #00ff9d;
+            color: #00ff9d;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .resolve-btn:hover {
+            background: rgba(0, 255, 157, 0.1);
+        }
+
+        .no-incidents {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+
+        .no-incidents-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Command Center */
+        .command-center {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 50;
+        }
+
+        .command-btn {
+            background: #141824;
+            border: 2px solid #00ff9d;
+            color: #00ff9d;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0, 255, 157, 0.2);
+        }
+
+        .command-btn:hover {
+            background: #00ff9d;
+            color: #0a0e1a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 255, 157, 0.4);
+        }
+
+        .command-btn.active {
+            background: #00ff9d;
+            color: #0a0e1a;
+        }
+
+        .command-btn.danger {
+            border-color: #ef4444;
+            color: #ef4444;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+        }
+
+        .command-btn.danger:hover {
+            background: #ef4444;
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .fleet-grid {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .command-center {
+                bottom: 1rem;
+                right: 1rem;
+                left: 1rem;
+            }
+
+            .command-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Loading Animation */
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #00ff9d;
+            border-radius: 50%;
+            animation: rotate 0.6s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div>
+                <h1>i.r.T</h1>
+                <p>Incident Response & Telemetry</p>
+            </div>
+        </div>
+        <div class="connection-status">
+            <div class="status-dot"></div>
+            <span class="status-text">Live</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Metrics Dashboard -->
+        <div class="metrics-grid">
+            <div class="metric-card operational">
+                <div class="metric-header">
+                    <span class="metric-icon">✓</span>
+                    <span class="metric-value" id="metric-operational">42</span>
+                </div>
+                <div class="metric-label">Operational</div>
+            </div>
+
+            <div class="metric-card degraded">
+                <div class="metric-header">
+                    <span class="metric-icon">⚠</span>
+                    <span class="metric-value" id="metric-degraded">5</span>
+                </div>
+                <div class="metric-label">Degraded</div>
+            </div>
+
+            <div class="metric-card critical">
+                <div class="metric-header">
+                    <span class="metric-icon">⚡</span>
+                    <span class="metric-value" id="metric-critical">3</span>
+                </div>
+                <div class="metric-label">Critical</div>
+            </div>
+
+            <div class="metric-card uptime">
+                <div class="metric-header">
+                    <span class="metric-icon">⏱</span>
+                    <span class="metric-value" id="metric-uptime">94.2%</span>
+                </div>
+                <div class="metric-label">Fleet Uptime</div>
+            </div>
+        </div>
+
+        <!-- Fleet Grid -->
+        <div class="fleet-section">
+            <div class="section-header">
+                <h2 class="section-title">Fleet Status - <span id="robot-count">50</span> Robots</h2>
+                <div class="fleet-controls">
+                    <button class="control-btn" onclick="refreshFleet()">↻ Refresh</button>
+                    <button class="control-btn" onclick="viewMap()">🗺 Map View</button>
+                </div>
+            </div>
+            <div class="fleet-grid" id="fleet-grid">
+                <!-- Robots will be populated here -->
+            </div>
+        </div>
+
+        <!-- Incident Timeline -->
+        <div class="incident-timeline">
+            <div class="incident-header">
+                <h2 class="section-title">Active Incidents</h2>
+                <span class="incident-count">
+                    <span id="incident-count">8</span> Active
+                </span>
+            </div>
+            <div class="incidents-list" id="incidents-list">
+                <!-- Incidents will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Command Center -->
+    <div class="command-center">
+        <button class="command-btn" id="scenario-btn" onclick="toggleScenario()">
+            <span>▶</span>
+            <span>Start Red Team</span>
+        </button>
+        <button class="command-btn danger" onclick="emergencyStop()">
+            <span>⏸</span>
+            <span>Emergency Stop All</span>
+        </button>
+    </div>
+
+    <script>
+        // State
+        let robots = [];
+        let incidents = [];
+        let scenarioActive = false;
+        let updateInterval;
+
+        // Initialize
+        function init() {
+            generateFleet();
+            renderFleet();
+            startUpdates();
+        }
+
+        // Generate initial fleet
+        function generateFleet() {
+            robots = Array.from({ length: 50 }, (_, i) => ({
+                id: `robot_${i + 1}`,
+                health: Math.floor(Math.random() * 30) + 70,
+                battery: Math.floor(Math.random() * 30) + 70,
+                status: 'operational'
+            }));
+        }
+
+        // Render fleet grid
+        function renderFleet() {
+            const grid = document.getElementById('fleet-grid');
+            grid.innerHTML = robots.map(robot => `
+                <div class="robot-card ${robot.status}" onclick="selectRobot('${robot.id}')">
+                    <div class="robot-id">${robot.id.replace('robot_', 'R')}</div>
+                    <div class="robot-health ${getHealthClass(robot.health)}">${robot.health}%</div>
+                    <div class="robot-stats">
+                        <span class="battery-icon"></span>
+                        <span>${robot.battery}%</span>
+                    </div>
+                    <div class="status-badge ${robot.status}"></div>
+                </div>
+            `).join('');
+        }
+
+        function getHealthClass(health) {
+            if (health >= 80) return 'healthy';
+            if (health >= 50) return 'warning';
+            return 'danger';
+        }
+
+        // Update fleet (simulate real-time changes)
+        function updateFleet() {
+            robots.forEach(robot => {
+                // Simulate health fluctuations
+                if (scenarioActive) {
+                    // More aggressive changes during scenario
+                    robot.health = Math.max(0, robot.health + (Math.random() * 20 - 12));
+                    robot.battery = Math.max(0, robot.battery - Math.random() * 2);
+                } else {
+                    // Gentle fluctuations normally
+                    robot.health = Math.min(100, Math.max(0, robot.health + (Math.random() * 4 - 2)));
+                    robot.battery = Math.max(0, robot.battery - Math.random() * 0.5);
+                }
+
+                // Update status based on health
+                if (robot.health < 40 || robot.battery < 20) {
+                    robot.status = 'critical';
+                    
+                    // Create incident if new critical
+                    if (!incidents.some(i => i.robot_id === robot.id && !i.resolved)) {
+                        createIncident(robot);
+                    }
+                } else if (robot.health < 70 || robot.battery < 40) {
+                    robot.status = 'degraded';
+                } else {
+                    robot.status = 'operational';
+                }
+            });
+
+            renderFleet();
+            updateMetrics();
+        }
+
+        // Create incident
+        function createIncident(robot) {
+            const types = {
+                battery: { icon: '🔋', message: `Battery critical: ${robot.battery.toFixed(0)}%` },
+                network: { icon: '📡', message: 'Network connectivity degraded' },
+                gps: { icon: '📍', message: 'GPS spoofing detected' },
+                actuator: { icon: '⚙️', message: 'Actuator anomaly detected' },
+                cpu: { icon: '💻', message: 'CPU usage critical' },
+                memory: { icon: '🧠', message: 'Memory exhaustion' }
+            };
+
+            const typeKey = robot.battery < 20 ? 'battery' : ['network', 'gps', 'actuator', 'cpu', 'memory'][Math.floor(Math.random() * 5)];
+            const type = types[typeKey];
+
+            const incident = {
+                id: `incident_${Date.now()}_${Math.random()}`,
+                robot_id: robot.id,
+                type: typeKey,
+                icon: type.icon,
+                severity: robot.health < 40 ? 'critical' : 'warning',
+                message: type.message,
+                timestamp: new Date(),
+                resolved: false
+            };
+
+            incidents.unshift(incident);
+            renderIncidents();
+        }
+
+        // Render incidents
+        function renderIncidents() {
+            const list = document.getElementById('incidents-list');
+            const activeIncidents = incidents.filter(i => !i.resolved);
+            
+            document.getElementById('incident-count').textContent = activeIncidents.length;
+
+            if (activeIncidents.length === 0) {
+                list.innerHTML = `
+                    <div class="no-incidents">
+                        <div class="no-incidents-icon">✓</div>
+                        <p>All systems operational</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = activeIncidents.slice(0, 20).map(incident => `
+                <div class="incident-item ${incident.severity}">
+                    <div class="incident-header-row">
+                        <div class="incident-meta">
+                            <span class="incident-type">${incident.icon}</span>
+                            <span class="incident-robot">${incident.robot_id}</span>
+                            <span class="incident-time">${formatTime(incident.timestamp)}</span>
+                        </div>
+                        <button class="resolve-btn" onclick="resolveIncident('${incident.id}')">
+                            ✓ Resolve
+                        </button>
+                    </div>
+                    <div class="incident-message">${incident.message}</div>
+                </div>
+            `).join('');
+        }
+
+        function formatTime(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return `${seconds}s ago`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            return `${Math.floor(minutes / 60)}h ago`;
+        }
+
+        // Resolve incident
+        function resolveIncident(id) {
+            const incident = incidents.find(i => i.id === id);
+            if (incident) {
+                incident.resolved = true;
+                renderIncidents();
+            }
+        }
+
+        // Update metrics
+        function updateMetrics() {
+            const operational = robots.filter(r => r.status === 'operational').length;
+            const degraded = robots.filter(r => r.status === 'degraded').length;
+            const critical = robots.filter(r => r.status === 'critical').length;
+            const uptime = (operational / robots.length * 100).toFixed(1);
+
+            document.getElementById('metric-operational').textContent = operational;
+            document.getElementById('metric-degraded').textContent = degraded;
+            document.getElementById('metric-critical').textContent = critical;
+            document.getElementById('metric-uptime').textContent = uptime + '%';
+        }
+
+        // Toggle scenario
+        function toggleScenario() {
+            scenarioActive = !scenarioActive;
+            const btn = document.getElementById('scenario-btn');
+            
+            if (scenarioActive) {
+                btn.classList.add('active');
+                btn.innerHTML = '<span>⏸</span><span>Stop Scenario</span>';
+            } else {
+                btn.classList.remove('active');
+                btn.innerHTML = '<span>▶</span><span>Start Red Team</span>';
+            }
+        }
+
+        // Emergency stop
+        function emergencyStop() {
+            if (confirm('Emergency stop all robots?')) {
+                robots.forEach(robot => {
+                    robot.health = 100;
+                    robot.status = 'operational';
+                });
+                incidents = [];
+                scenarioActive = false;
+                
+                const btn = document.getElementById('scenario-btn');
+                btn.classList.remove('active');
+                btn.innerHTML = '<span>▶</span><span>Start Red Team</span>';
+                
+                renderFleet();
+                renderIncidents();
+                updateMetrics();
+            }
+        }
+
+        // Select robot (for detail view)
+        function selectRobot(id) {
+            const robot = robots.find(r => r.id === id);
+            alert(`Robot: ${id}\nHealth: ${robot.health.toFixed(0)}%\nBattery: ${robot.battery.toFixed(0)}%\nStatus: ${robot.status}`);
+        }
+
+        // Refresh fleet
+        function refreshFleet() {
+            generateFleet();
+            incidents = [];
+            renderFleet();
+            renderIncidents();
+            updateMetrics();
+        }
+
+        // View map (placeholder)
+        function viewMap() {
+            alert('Map view coming soon! This would show robot positions on a 2D map.');
+        }
+
+        // Start real-time updates
+        function startUpdates() {
+            updateInterval = setInterval(() => {
+                updateFleet();
+                renderIncidents(); // Update timestamps
+            }, 1000);
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
