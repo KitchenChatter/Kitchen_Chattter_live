@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-live-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-🔗 **[Live Demo]https://github.com/KitchenChatter/Kitchen_Chattter_live**
+🔗 **[Live Demo]https://kitchenchatter.github.io/Kitchen_Chattter_live/**
 
 ---
 
